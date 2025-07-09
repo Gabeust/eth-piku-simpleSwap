@@ -1,0 +1,27 @@
+{
+  "name": "proyecto-modulo-3",
+  "version": "1.0.0",
+  "description": "A minimalistic implementation of a decentralized exchange (DEX) inspired by Uniswap V2, built with Solidity.  \r It allows users to swap ERC-20 tokens, add/remove liquidity, and query prices.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gabeust/eth-piku-simpleSwap.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Gabeust/eth-piku-simpleSwap/issues"
+  },
+  "homepage": "https://github.com/Gabeust/eth-piku-simpleSwap#readme",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.0.0",
+    "hardhat": "^2.25.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.3.0"
+  }
+}

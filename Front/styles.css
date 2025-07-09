@@ -1,0 +1,227 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: #0d1116;
+  color: #f0f0f0;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.6;
+}
+
+::placeholder {
+  color: #aaa !important;
+}
+
+input:disabled,
+input[readonly] {
+  background-color: #0f141a !important;
+  color: #ccc !important;
+  opacity: 1;
+}
+
+.form-control,
+.form-select {
+  background-color: #0f141a;
+  color: #f0f0f0;
+  border: 1px solid #2c313c;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+.form-label {
+  margin-bottom: 0.25rem;
+}
+.form-control:focus,
+.form-select:focus {
+  border-color: #00d1b2;
+  box-shadow: 0 0 0 0.2rem rgba(0, 209, 178, 0.25);
+  background-color: #10161e;
+}
+
+.btn-info {
+  background-color: #00d1b2;
+  border-color: #00bfa6;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 14px;
+  transition: all 0.2s ease-in-out;
+}
+.btn-info:hover {
+  background-color: #00bfa6;
+  border-color: #00a894;
+  transform: scale(1.03);
+}
+
+.card {
+  background-color: #161b22;
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 0 20px rgba(0, 209, 178, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.card:hover {
+  box-shadow: 0 0 25px rgba(0, 209, 178, 0.1);
+}
+#liquidityInfoCard {
+  padding: 1rem 1.5rem; 
+
+  margin: 0 auto 1rem auto;
+}
+
+#liquidityInfoCard .card-body {
+  padding: 0.5rem 1rem; 
+}
+
+#liquidityInfoCard .card-title {
+  margin-bottom: 0.4rem; 
+  font-size: 1.1rem;
+}
+
+#liquidityInfoCard .card-text {
+  margin: 0; 
+  line-height: 1.2; 
+}
+
+#mainTabs {
+  background-color: #1c2129;
+  border-radius: 50px;
+  padding: 0.4rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 600px;
+  width: 100%;
+}
+#mainTabs .nav-item {
+  margin: 0 0.25rem;
+}
+#mainTabs .nav-link {
+  background: transparent;
+  color: #ccc;
+  font-weight: 600;
+  border-radius: 50px;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+#mainTabs .nav-link.active {
+  background-color: #00d1b2;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 209, 178, 0.4);
+}
+#mainTabs .nav-link:hover {
+  background-color: #00bfa6;
+  color: #ffffff;
+}
+
+.tab-btn {
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  color: #ccc;
+  background-color: #1c2129;
+  border: none;
+  transition: background-color 0.2s ease;
+}
+.tab-btn:hover {
+  background-color: #222831;
+  color: #fff;
+}
+.tab-btn.active {
+  background-color: #00d1b2;
+  color: #fff;
+}
+
+#addLiquidityForm,
+#removeLiquidityForm {
+  background-color: #1c2129;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 0 10px rgba(0, 209, 178, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  margin-top: 1rem;
+}
+
+#historyList li {
+  display: flex;
+  align-items: center;
+  background-color: #0f141a;
+  border: 1px solid #2c313c;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  color: #ddd;
+  font-size: 0.9rem;
+}
+#historyList li::before {
+  content: '⟳';
+  margin-right: 0.5rem;
+  color: #00d1b2;
+}
+
+.navbar {
+  background-color: #161b22;
+  padding: 1rem 0;
+}
+.navbar-brand {
+  color: #00d1b2;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+.navbar .btn-info {
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+}
+
+.form-text,
+#liqBalanceA,
+#liqBalanceB {
+  color: #f0f0f0 !important;
+  font-weight: 600;
+}
+
+/* Reservas del pool */
+#poolReserveA,
+#poolReserveB {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Texto del card de liquidez */
+#liquidityInfoCard .card-title {
+  color: #00d1b2;
+  font-weight: 500;
+}
+#liquidityInfoCard .card-text {
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+@media (max-width: 576px) {
+  .card {
+    padding: 1rem;
+  }
+  #mainTabs {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  #mainTabs .nav-link {
+    width: 100%;
+    text-align: center;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.95rem;
+  }
+}

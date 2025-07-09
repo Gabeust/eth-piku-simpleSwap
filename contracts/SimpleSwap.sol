@@ -9,11 +9,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @dev Reserves and liquidity are stored per token pair, independent of token order.
 contract SimpleSwap {
 
-    /// @notice Struct to hold reserves for a token pairz
+    /// @notice Struct to hold reserves for a token pair
     struct Reserve {
         uint256 tokenAReserve;
         uint256 tokenBReserve;
     }
+
     /// @notice Reserves for each token pair: reserves[tokenA][tokenB]
     mapping(address => mapping(address => Reserve)) public reserves;
     /// @notice Liquidity mapping: liquidity[user][tokenA][tokenB]
@@ -31,36 +32,28 @@ contract SimpleSwap {
     /// @return amountA Actual amount of token A used
     /// @return amountB Actual amount of token B used
     /// @return liquidityMinted Amount of liquidity added to the user's balance
-    function addLiquidity(
+
+  function addLiquidity(
         address tokenA,
         address tokenB,
-        uint amountADesired,
-        uint amountBDesired,
-        uint amountAMin,
-        uint amountBMin,
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256 amountAMin,
+        uint256 amountBMin,
         address to,
-        uint deadline
-    ) external returns (uint amountA, uint amountB, uint liquidityMinted) {
+        uint256 deadline
+    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidityMinted) {
         require(block.timestamp <= deadline, "EXPIRED");
 
         Reserve storage reserve = reserves[tokenA][tokenB];
-
-        if (reserve.tokenAReserve == 0 && reserve.tokenBReserve == 0) {
-            amountA = amountADesired;
-            amountB = amountBDesired;
-        } else {
-            uint amountBOptimal = (amountADesired * reserve.tokenBReserve) / reserve.tokenAReserve;
-            if (amountBOptimal <= amountBDesired) {
-                require(amountBOptimal >= amountBMin, "INSUFFICIENT_B_AMOUNT");
-                amountA = amountADesired;
-                amountB = amountBOptimal;
-            } else {
-                uint amountAOptimal = (amountBDesired * reserve.tokenAReserve) / reserve.tokenBReserve;
-                require(amountAOptimal >= amountAMin, "INSUFFICIENT_A_AMOUNT");
-                amountA = amountAOptimal;
-                amountB = amountBDesired;
-            }
-        }
+        (amountA, amountB) = _calculateLiquidityAmounts(
+            amountADesired,
+            amountBDesired,
+            amountAMin,
+            amountBMin,
+            reserve.tokenAReserve,
+            reserve.tokenBReserve
+        );
 
         IERC20(tokenA).transferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).transferFrom(msg.sender, address(this), amountB);
@@ -68,9 +61,33 @@ contract SimpleSwap {
         reserve.tokenAReserve += amountA;
         reserve.tokenBReserve += amountB;
 
-        liquidity[to][tokenA][tokenB] += amountA + amountB;
         liquidityMinted = amountA + amountB;
+        liquidity[to][tokenA][tokenB] += liquidityMinted;
     }
+
+    function _calculateLiquidityAmounts(
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        uint256 reserveA,
+        uint256 reserveB
+    ) internal pure returns (uint256 amountA, uint256 amountB) {
+        if (reserveA == 0 && reserveB == 0) {
+            return (amountADesired, amountBDesired);
+        }
+
+        uint256 amountBOptimal = (amountADesired * reserveB) / reserveA;
+        if (amountBOptimal <= amountBDesired) {
+            require(amountBOptimal >= amountBMin, "INSUFFICIENT_B_AMOUNT");
+            return (amountADesired, amountBOptimal);
+        }
+
+        uint256 amountAOptimal = (amountBDesired * reserveA) / reserveB;
+        require(amountAOptimal >= amountAMin, "INSUFFICIENT_A_AMOUNT");
+        return (amountAOptimal, amountBDesired);
+    }
+
     /// @notice Removes liquidity from a token pair
     /// @param tokenA Address of token A
     /// @param tokenB Address of token B
@@ -92,20 +109,25 @@ contract SimpleSwap {
     ) external returns (uint amountA, uint amountB) {
         require(block.timestamp <= deadline, "EXPIRED");
 
-        Reserve storage reserve = reserves[tokenA][tokenB];
-        uint userLiquidity = liquidity[msg.sender][tokenA][tokenB];
-        require(userLiquidity >= liquidityAmount, "INSUFFICIENT_LIQUIDITY");
+        Reserve storage pairReserve = reserves[tokenA][tokenB];
+        uint256 reserveA = pairReserve.tokenAReserve;
+        uint256 reserveB = pairReserve.tokenBReserve;
 
-        uint totalLiquidity = reserve.tokenAReserve + reserve.tokenBReserve;
-        amountA = (liquidityAmount * reserve.tokenAReserve) / totalLiquidity;
-        amountB = (liquidityAmount * reserve.tokenBReserve) / totalLiquidity;
+        uint totalLiquidity = reserveA + reserveB;
+
+        require(liquidity[msg.sender][tokenA][tokenB] >= liquidityAmount, "INSUFFICIENT_LIQUIDITY");
+
+        amountA = (liquidityAmount * reserveA) / totalLiquidity;
+        amountB = (liquidityAmount * reserveB) / totalLiquidity;
 
         require(amountA >= amountAMin, "INSUFFICIENT_A_AMOUNT");
         require(amountB >= amountBMin, "INSUFFICIENT_B_AMOUNT");
 
         liquidity[msg.sender][tokenA][tokenB] -= liquidityAmount;
-        reserve.tokenAReserve -= amountA;
-        reserve.tokenBReserve -= amountB;
+
+        pairReserve.tokenAReserve = reserveA - amountA;
+        pairReserve.tokenBReserve = reserveB - amountB;
+
 
         IERC20(tokenA).transfer(to, amountA);
         IERC20(tokenB).transfer(to, amountB);
@@ -118,7 +140,7 @@ contract SimpleSwap {
     /// @param to Address to receive tokenOut
     /// @param deadline Latest timestamp the transaction can be executed
     /// @return amountOut Amount of tokenOut sent to the user
-     function swapExactTokensForTokens(
+    function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,
         address[] calldata path,
@@ -131,40 +153,43 @@ contract SimpleSwap {
         address tokenIn = path[0];
         address tokenOut = path[1];
 
-        Reserve storage reserve = reserves[tokenIn][tokenOut];
-        uint reserveIn = reserve.tokenAReserve;
-        uint reserveOut = reserve.tokenBReserve;
+        Reserve storage pairReserve = reserves[tokenIn][tokenOut];
+        uint256 reserveIn = pairReserve.tokenAReserve;
+        uint256 reserveOut = pairReserve.tokenBReserve;
 
         IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
 
         amountOut = (amountIn * reserveOut) / (reserveIn + amountIn);
         require(amountOut >= amountOutMin, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        reserve.tokenAReserve += amountIn;
-        reserve.tokenBReserve -= amountOut;
+        pairReserve.tokenAReserve += amountIn;
+        pairReserve.tokenBReserve -= amountOut;
 
         IERC20(tokenOut).transfer(to, amountOut);
     }
+
     /// @notice Returns the price of 1 tokenA in terms of tokenB
     /// @param tokenA Address of input token
     /// @param tokenB Address of output token
     /// @return price Price of 1 tokenA denominated in tokenB (scaled by 1e18)
     function getPrice(address tokenA, address tokenB) external view returns (uint price) {
-        Reserve storage reserve = reserves[tokenA][tokenB];
-        require(reserve.tokenAReserve > 0, "NO_LIQUIDITY");
+        Reserve storage pairReserve = reserves[tokenA][tokenB];
+        require(pairReserve.tokenAReserve > 0, "NO_LIQUIDITY");
 
-        price = (reserve.tokenBReserve * 1e18) / reserve.tokenAReserve;
+        price = (pairReserve.tokenBReserve * 1e18) / pairReserve.tokenAReserve;
     }
 
-    /// @notice Calculates output amount for a given input and reserves
-    /// @param amountIn Amount of input tokens
-    /// @param reserveIn Reserve of input tokens in the pool
-    /// @param reserveOut Reserve of output tokens in the pool
-    /// @return amountOut Calculated output token amount
-    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
-        uint amountInWithFee = amountIn * 997;
-        uint numerator = amountInWithFee * reserveOut;
-        uint denominator = reserveIn * 1000 + amountInWithFee;
+   /// @notice Calculates output amount for a given input and reserves
+   /// @param amountIn Amount of input tokens
+   /// @param reserveIn Reserve of input tokens in the pool
+   /// @param reserveOut Reserve of output tokens in the pool
+   /// @return amountOut Calculated output token amount
+   function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
+        require(amountIn > 0, "SimpleSwap: INSUFFICIENT_INPUT_AMOUNT");
+        require(reserveIn > 0 && reserveOut > 0, "SimpleSwap: INSUFFICIENT_LIQUIDITY");
+
+        uint numerator = amountIn * reserveOut;
+        uint denominator = reserveIn + amountIn;
         amountOut = numerator / denominator;
     }
 }
