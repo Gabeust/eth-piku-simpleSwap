@@ -32,8 +32,7 @@ contract SimpleSwap {
     /// @return amountA Actual amount of token A used
     /// @return amountB Actual amount of token B used
     /// @return liquidityMinted Amount of liquidity added to the user's balance
-
-  function addLiquidity(
+    function addLiquidity(
         address tokenA,
         address tokenB,
         uint256 amountADesired,
@@ -65,6 +64,15 @@ contract SimpleSwap {
         liquidity[to][tokenA][tokenB] += liquidityMinted;
     }
 
+    /// @dev Internal function to calculate optimal liquidity amounts considering slippage
+    /// @param amountADesired Desired amount of token A
+    /// @param amountBDesired Desired amount of token B
+    /// @param amountAMin Minimum amount of token A accepted
+    /// @param amountBMin Minimum amount of token B accepted
+    /// @param reserveA Current reserve of token A
+    /// @param reserveB Current reserve of token B
+    /// @return amountA Final amount of token A to deposit
+    /// @return amountB Final amount of token B to deposit
     function _calculateLiquidityAmounts(
         uint256 amountADesired,
         uint256 amountBDesired,
