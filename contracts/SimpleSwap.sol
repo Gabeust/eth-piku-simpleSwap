@@ -15,6 +15,34 @@ contract SimpleSwap {
         uint256 tokenBReserve;
     }
 
+    /// @notice Emitted when liquidity is added to the pool
+    event LiquidityAdded(
+        address indexed provider,
+        address indexed tokenA,
+        address indexed tokenB,
+        uint256 amountA,
+        uint256 amountB,
+        uint256 liquidityMinted
+    );
+
+    /// @notice Emitted when liquidity is removed from the pool
+    event LiquidityRemoved(
+        address indexed provider,
+        address indexed tokenA,
+        address indexed tokenB,
+        uint256 amountA,
+        uint256 amountB
+    );
+
+    /// @notice Emitted when a token swap is executed
+    event SwapExecuted(
+        address indexed user,
+        address indexed tokenIn,
+        address indexed tokenOut,
+        uint256 amountIn,
+        uint256 amountOut
+    );
+
     /// @notice Reserves for each token pair: reserves[tokenA][tokenB]
     mapping(address => mapping(address => Reserve)) public reserves;
     /// @notice Liquidity mapping: liquidity[user][tokenA][tokenB]
@@ -62,6 +90,8 @@ contract SimpleSwap {
 
         liquidityMinted = amountA + amountB;
         liquidity[to][tokenA][tokenB] += liquidityMinted;
+
+        emit LiquidityAdded(msg.sender, tokenA, tokenB, amountA, amountB, liquidityMinted);
     }
 
     /// @dev Internal function to calculate optimal liquidity amounts considering slippage
@@ -139,6 +169,8 @@ contract SimpleSwap {
 
         IERC20(tokenA).transfer(to, amountA);
         IERC20(tokenB).transfer(to, amountB);
+
+        emit LiquidityRemoved(msg.sender, tokenA, tokenB, amountA, amountB);
     }
 
     /// @notice Swaps a fixed amount of tokenIn for as much tokenOut as possible
@@ -174,6 +206,8 @@ contract SimpleSwap {
         pairReserve.tokenBReserve -= amountOut;
 
         IERC20(tokenOut).transfer(to, amountOut);
+
+        emit SwapExecuted(msg.sender, tokenIn, tokenOut, amountIn, amountOut);
     }
 
     /// @notice Returns the price of 1 tokenA in terms of tokenB
