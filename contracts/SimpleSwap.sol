@@ -5,17 +5,25 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title SimpleSwap - A basic decentralized token swap contract with liquidity pools
 /// @author Gabriel
-/// @notice This contract allows users to add/remove liquidity and swap ERC20 tokens in pairs,
+/// @notice This contract allows users to add/remove liquidity and swap ERC20 tokens in pairs.
 /// @dev Reserves and liquidity are stored per token pair, independent of token order.
 contract SimpleSwap {
 
     /// @notice Struct to hold reserves for a token pair
     struct Reserve {
+        /// @notice Reserve amount of token A
         uint256 tokenAReserve;
+        /// @notice Reserve amount of token B
         uint256 tokenBReserve;
     }
 
     /// @notice Emitted when liquidity is added to the pool
+    /// @param provider Address of the liquidity provider
+    /// @param tokenA Address of token A in the pair
+    /// @param tokenB Address of token B in the pair
+    /// @param amountA Amount of token A added
+    /// @param amountB Amount of token B added
+    /// @param liquidityMinted Amount of liquidity tokens minted to provider
     event LiquidityAdded(
         address indexed provider,
         address indexed tokenA,
@@ -26,6 +34,11 @@ contract SimpleSwap {
     );
 
     /// @notice Emitted when liquidity is removed from the pool
+    /// @param provider Address of the liquidity provider removing liquidity
+    /// @param tokenA Address of token A in the pair
+    /// @param tokenB Address of token B in the pair
+    /// @param amountA Amount of token A removed
+    /// @param amountB Amount of token B removed
     event LiquidityRemoved(
         address indexed provider,
         address indexed tokenA,
@@ -35,6 +48,11 @@ contract SimpleSwap {
     );
 
     /// @notice Emitted when a token swap is executed
+    /// @param user Address of the user performing the swap
+    /// @param tokenIn Address of the input token
+    /// @param tokenOut Address of the output token
+    /// @param amountIn Amount of input token sent
+    /// @param amountOut Amount of output token received
     event SwapExecuted(
         address indexed user,
         address indexed tokenIn,
@@ -45,6 +63,7 @@ contract SimpleSwap {
 
     /// @notice Reserves for each token pair: reserves[tokenA][tokenB]
     mapping(address => mapping(address => Reserve)) public reserves;
+
     /// @notice Liquidity mapping: liquidity[user][tokenA][tokenB]
     mapping(address => mapping(address => mapping(address => uint256))) public liquidity;
 
@@ -55,11 +74,11 @@ contract SimpleSwap {
     /// @param amountBDesired Desired amount of token B to deposit
     /// @param amountAMin Minimum acceptable amount of token A (slippage protection)
     /// @param amountBMin Minimum acceptable amount of token B (slippage protection)
-    /// @param to Address to receive the liquidity
+    /// @param to Address to receive the liquidity tokens
     /// @param deadline Latest timestamp the transaction can be executed
     /// @return amountA Actual amount of token A used
     /// @return amountB Actual amount of token B used
-    /// @return liquidityMinted Amount of liquidity added to the user's balance
+    /// @return liquidityMinted Amount of liquidity tokens minted to the user
     function addLiquidity(
         address tokenA,
         address tokenB,
@@ -73,6 +92,8 @@ contract SimpleSwap {
         require(block.timestamp <= deadline, "EXPIRED");
 
         Reserve storage reserve = reserves[tokenA][tokenB];
+
+        // Calculate optimal amounts considering current reserves and slippage limits
         (amountA, amountB) = _calculateLiquidityAmounts(
             amountADesired,
             amountBDesired,
@@ -82,12 +103,18 @@ contract SimpleSwap {
             reserve.tokenBReserve
         );
 
+        // Transfer tokens from sender to contract
         IERC20(tokenA).transferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).transferFrom(msg.sender, address(this), amountB);
 
-        reserve.tokenAReserve += amountA;
-        reserve.tokenBReserve += amountB;
+        // Update reserves with new amounts
+        uint256 updatedTokenAReserve = reserve.tokenAReserve + amountA;
+        uint256 updatedTokenBReserve = reserve.tokenBReserve + amountB;
 
+        reserve.tokenAReserve = updatedTokenAReserve;
+        reserve.tokenBReserve = updatedTokenBReserve;
+
+        // Calculate liquidity minted and update liquidity mapping
         liquidityMinted = amountA + amountB;
         liquidity[to][tokenA][tokenB] += liquidityMinted;
 
@@ -97,8 +124,8 @@ contract SimpleSwap {
     /// @dev Internal function to calculate optimal liquidity amounts considering slippage
     /// @param amountADesired Desired amount of token A
     /// @param amountBDesired Desired amount of token B
-    /// @param amountAMin Minimum amount of token A accepted
-    /// @param amountBMin Minimum amount of token B accepted
+    /// @param amountAMin Minimum acceptable amount of token A (slippage protection)
+    /// @param amountBMin Minimum acceptable amount of token B (slippage protection)
     /// @param reserveA Current reserve of token A
     /// @param reserveB Current reserve of token B
     /// @return amountA Final amount of token A to deposit
@@ -111,16 +138,21 @@ contract SimpleSwap {
         uint256 reserveA,
         uint256 reserveB
     ) internal pure returns (uint256 amountA, uint256 amountB) {
+        // If no reserves, return desired amounts
         if (reserveA == 0 && reserveB == 0) {
             return (amountADesired, amountBDesired);
         }
 
+        // Calculate optimal amountB based on reserve ratio
         uint256 amountBOptimal = (amountADesired * reserveB) / reserveA;
+
+        // Check if optimal amountB fits desired amountB constraints
         if (amountBOptimal <= amountBDesired) {
             require(amountBOptimal >= amountBMin, "INSUFFICIENT_B_AMOUNT");
             return (amountADesired, amountBOptimal);
         }
 
+        // Otherwise calculate optimal amountA based on reserve ratio
         uint256 amountAOptimal = (amountBDesired * reserveA) / reserveB;
         require(amountAOptimal >= amountAMin, "INSUFFICIENT_A_AMOUNT");
         return (amountAOptimal, amountBDesired);
@@ -129,7 +161,7 @@ contract SimpleSwap {
     /// @notice Removes liquidity from a token pair
     /// @param tokenA Address of token A
     /// @param tokenB Address of token B
-    /// @param liquidityAmount Amount of liquidity to withdraw
+    /// @param liquidityAmount Amount of liquidity tokens to withdraw
     /// @param amountAMin Minimum acceptable amount of token A (slippage protection)
     /// @param amountBMin Minimum acceptable amount of token B (slippage protection)
     /// @param to Address to receive withdrawn tokens
@@ -151,22 +183,31 @@ contract SimpleSwap {
         uint256 reserveA = pairReserve.tokenAReserve;
         uint256 reserveB = pairReserve.tokenBReserve;
 
+        // Total liquidity in the pool
         uint totalLiquidity = reserveA + reserveB;
 
+        // Ensure user has enough liquidity to withdraw
         require(liquidity[msg.sender][tokenA][tokenB] >= liquidityAmount, "INSUFFICIENT_LIQUIDITY");
 
+        // Calculate proportional token amounts to withdraw
         amountA = (liquidityAmount * reserveA) / totalLiquidity;
         amountB = (liquidityAmount * reserveB) / totalLiquidity;
 
+        // Check slippage limits
         require(amountA >= amountAMin, "INSUFFICIENT_A_AMOUNT");
         require(amountB >= amountBMin, "INSUFFICIENT_B_AMOUNT");
 
+        // Decrease liquidity balance for user
         liquidity[msg.sender][tokenA][tokenB] -= liquidityAmount;
 
-        pairReserve.tokenAReserve = reserveA - amountA;
-        pairReserve.tokenBReserve = reserveB - amountB;
+        // Update reserves after withdrawal
+        uint256 updatedTokenAReserve = reserveA - amountA;
+        uint256 updatedTokenBReserve = reserveB - amountB;
 
+        pairReserve.tokenAReserve = updatedTokenAReserve;
+        pairReserve.tokenBReserve = updatedTokenBReserve;
 
+        // Transfer tokens to user
         IERC20(tokenA).transfer(to, amountA);
         IERC20(tokenB).transfer(to, amountB);
 
@@ -197,14 +238,21 @@ contract SimpleSwap {
         uint256 reserveIn = pairReserve.tokenAReserve;
         uint256 reserveOut = pairReserve.tokenBReserve;
 
+        // Transfer tokenIn from sender to contract
         IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
 
+        // Calculate amountOut based on reserves and input
         amountOut = (amountIn * reserveOut) / (reserveIn + amountIn);
         require(amountOut >= amountOutMin, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        pairReserve.tokenAReserve += amountIn;
-        pairReserve.tokenBReserve -= amountOut;
+        // Update reserves after swap
+        uint256 updatedReserveIn = reserveIn + amountIn;
+        uint256 updatedReserveOut = reserveOut - amountOut;
 
+        pairReserve.tokenAReserve = updatedReserveIn;
+        pairReserve.tokenBReserve = updatedReserveOut;
+
+        // Transfer tokenOut to recipient
         IERC20(tokenOut).transfer(to, amountOut);
 
         emit SwapExecuted(msg.sender, tokenIn, tokenOut, amountIn, amountOut);
@@ -218,7 +266,10 @@ contract SimpleSwap {
         Reserve storage pairReserve = reserves[tokenA][tokenB];
         require(pairReserve.tokenAReserve > 0, "NO_LIQUIDITY");
 
-        price = (pairReserve.tokenBReserve * 1e18) / pairReserve.tokenAReserve;
+        uint256 tokenAReserveLocal = pairReserve.tokenAReserve;
+        uint256 tokenBReserveLocal = pairReserve.tokenBReserve;
+
+        price = (tokenBReserveLocal * 1e18) / tokenAReserveLocal;
     }
 
    /// @notice Calculates output amount for a given input and reserves
