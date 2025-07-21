@@ -24,10 +24,28 @@ A custom automated market maker (AMM) that allows users to:
 
 ---
 
+## 💻 Uso del Frontend (SimpleSwap DApp)
+
+El frontend es una interfaz web que permite a los usuarios interactuar fácilmente con el contrato SimpleSwap:
+
+- **Conectar Wallet:** Conectá tu MetaMask o wallet compatible con la DApp.
+
+- **Intercambiar Tokens:** Ingresá la cantidad de token que querés intercambiar. La DApp calcula automáticamente el monto estimado de salida y el deslizamiento (slippage).
+
+- **Aprobar Tokens:** El frontend realiza automáticamente las transacciones de `approve()` antes de hacer swaps, asegurando que el contrato tenga permiso para transferir tus tokens.
+
+- **Agregar/Retirar Liquidez:** Proveé liquidez a pares de tokens o retirala fácilmente.
+
+- **Precio y Slippage en Tiempo Real:** La interfaz actualiza dinámicamente los precios y los mínimos aceptables para protegerte contra el deslizamiento.
+
+**Nota:** Asegurate de aprobar el gasto de tokens antes de realizar swaps o agregar liquidez; el frontend gestiona este flujo automáticamente para vos.
+
+---
+
+
 ## 🔧 Features
 
 - Liquidity provisioning
-- Token swaps with 0.3% fee
 - LP shares tracked internally
 - Constant product formula (`x * y = k`)
 - Pricing and output estimate functions
